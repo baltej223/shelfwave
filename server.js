@@ -1,17 +1,22 @@
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
 
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
-const { v4: uuidv4 } = require('uuid');
-const axios = require('axios');
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(express.json());
-app.use(express.static('dist')); // For serving the React app
+app.use(express.static('./')); // For serving the React app
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -330,3 +335,4 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
