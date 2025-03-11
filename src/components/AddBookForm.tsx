@@ -2,18 +2,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Upload, X, BookIcon, FileText, Check } from 'lucide-react';
+import { Upload, X, BookIcon, FileText, Check, Link as LinkIcon } from 'lucide-react';
 import { addBook } from '../lib/api';
 import { useToast } from '../hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const AddBookForm: React.FC = () => {
   const [name, setName] = useState('');
   const [genre, setGenre] = useState('');
   const [description, setDescription] = useState('');
   const [bookFile, setBookFile] = useState<File | null>(null);
+  const [bookUrl, setBookUrl] = useState('');
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadMethod, setUploadMethod] = useState<'file' | 'url'>('file');
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -34,6 +37,8 @@ const AddBookForm: React.FC = () => {
   const handleBookFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setBookFile(e.target.files[0]);
+      // Clear URL if file is selected
+      setBookUrl('');
     }
   };
   
@@ -65,9 +70,17 @@ const AddBookForm: React.FC = () => {
       return;
     }
     
-    if (!bookFile) {
+    if (uploadMethod === 'file' && !bookFile) {
       toast({
         title: "Book file is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (uploadMethod === 'url' && !bookUrl.trim()) {
+      toast({
+        title: "Book URL is required",
         variant: "destructive",
       });
       return;
@@ -79,7 +92,12 @@ const AddBookForm: React.FC = () => {
     formData.append('name', name);
     formData.append('genre', genre);
     formData.append('description', description);
-    formData.append('bookFile', bookFile);
+    
+    if (uploadMethod === 'file' && bookFile) {
+      formData.append('bookFile', bookFile);
+    } else if (uploadMethod === 'url') {
+      formData.append('bookUrl', bookUrl);
+    }
     
     if (coverImage) {
       formData.append('coverImage', coverImage);
@@ -197,37 +215,59 @@ const AddBookForm: React.FC = () => {
             
             <div>
               <label className="block text-sm font-medium mb-2">
-                Book File (PDF)
+                Book Content
               </label>
-              {bookFile ? (
-                <div className="flex items-center gap-3 p-3 rounded-md bg-accent">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  <span className="flex-1 truncate">{bookFile.name}</span>
-                  <button 
-                    type="button"
-                    onClick={removeBookFile}
-                    className="p-1 rounded-full hover:bg-accent-foreground/10"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <label className="block w-full p-4 border border-dashed border-input rounded-md cursor-pointer hover:bg-muted/30 transition-colors">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
-                    <span className="text-sm font-medium">Upload book file</span>
-                    <span className="text-xs text-muted-foreground mt-1">
-                      PDF, EPUB, or other document formats
-                    </span>
+              <Tabs value={uploadMethod} onValueChange={(value) => setUploadMethod(value as 'file' | 'url')} className="w-full">
+                <TabsList className="grid grid-cols-2 mb-4">
+                  <TabsTrigger value="file">Upload File</TabsTrigger>
+                  <TabsTrigger value="url">Provide URL</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="file" className="mt-0">
+                  {bookFile ? (
+                    <div className="flex items-center gap-3 p-3 rounded-md bg-accent">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <span className="flex-1 truncate">{bookFile.name}</span>
+                      <button 
+                        type="button"
+                        onClick={removeBookFile}
+                        className="p-1 rounded-full hover:bg-accent-foreground/10"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="block w-full p-4 border border-dashed border-input rounded-md cursor-pointer hover:bg-muted/30 transition-colors">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
+                        <span className="text-sm font-medium">Upload book file</span>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          PDF, EPUB, or other document formats
+                        </span>
+                      </div>
+                      <input 
+                        type="file" 
+                        accept=".pdf,.epub,.mobi,.txt" 
+                        onChange={handleBookFileChange}
+                        className="hidden" 
+                      />
+                    </label>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="url" className="mt-0">
+                  <div className="flex items-center gap-2 border border-input rounded-md focus-within:ring-2 focus-within:ring-primary/20 pr-2">
+                    <input
+                      type="url"
+                      value={bookUrl}
+                      onChange={(e) => setBookUrl(e.target.value)}
+                      placeholder="https://example.com/book.pdf"
+                      className="flex-1 px-4 py-2 border-0 focus:outline-none bg-transparent"
+                    />
+                    <LinkIcon className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <input 
-                    type="file" 
-                    accept=".pdf,.epub,.mobi,.txt" 
-                    onChange={handleBookFileChange}
-                    className="hidden" 
-                  />
-                </label>
-              )}
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </div>

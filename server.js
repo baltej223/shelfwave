@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -71,6 +72,24 @@ function loadBookData(bookFolder) {
   } catch (error) {
     console.error(`Error reading book data for ${bookFolder}:`, error);
     return null;
+  }
+}
+
+// Helper to download file from URL
+async function downloadFile(url, destination) {
+  try {
+    const response = await axios.get(url, { responseType: 'stream' });
+    const writer = fs.createWriteStream(destination);
+    
+    response.data.pipe(writer);
+    
+    return new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+  } catch (error) {
+    console.error(`Error downloading file from ${url}:`, error);
+    throw error;
   }
 }
 
@@ -240,17 +259,40 @@ app.get('/api/books/:id/file', (req, res) => {
 app.post('/api/books', upload.fields([
   { name: 'bookFile', maxCount: 1 },
   { name: 'coverImage', maxCount: 1 }
-]), (req, res) => {
+]), async (req, res) => {
   try {
-    const { name, genre, description } = req.body;
+    const { name, genre, description, bookUrl } = req.body;
     
     if (!name || !genre) {
       return res.status(400).json({ error: 'Name and genre are required' });
     }
     
+    // Either bookFile or bookUrl is required
+    const hasBookFile = req.files && req.files['bookFile'] && req.files['bookFile'][0];
+    if (!hasBookFile && !bookUrl) {
+      return res.status(400).json({ error: 'Either book file or book URL is required' });
+    }
+    
     const bookId = uuidv4();
     const bookName = name.replace(/[^a-zA-Z0-9]/g, '_');
     const bookDir = path.join(__dirname, 'books', bookName);
+    
+    // Ensure the directory exists
+    if (!fs.existsSync(bookDir)) {
+      fs.mkdirSync(bookDir, { recursive: true });
+    }
+    
+    // If URL is provided, download the file
+    if (bookUrl) {
+      const fileExtension = path.extname(bookUrl) || '.pdf';
+      const bookFilePath = path.join(bookDir, `book${fileExtension}`);
+      
+      try {
+        await downloadFile(bookUrl, bookFilePath);
+      } catch (error) {
+        return res.status(400).json({ error: 'Failed to download book from URL' });
+      }
+    }
     
     // Create book JSON data
     const bookData = {
