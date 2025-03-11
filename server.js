@@ -1,4 +1,3 @@
-
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -333,41 +332,56 @@ app.post('/api/books', upload.fields([
   }
 });
 
-// Configure proper handling for client routes in development and production
-const isProduction = process.env.NODE_ENV === 'production';
+// Simplified routing approach
+// This will serve the API endpoints and then for any other route
+// will respond with a message to start the dev server
 
-if (isProduction) {
-  // In production, serve from the dist directory
-  app.use(express.static('dist'));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-  });
-} else {
-  // In development, forward to the Vite dev server
-  app.use('/', (req, res, next) => {
-    if (req.path.startsWith('/api')) {
-      return next();
-    }
-    // For client-side routes, serve the index.html directly
-    if (fs.existsSync(path.join(__dirname, 'index.html'))) {
-      return res.sendFile(path.join(__dirname, 'index.html'));
-    }
-    // If index.html doesn't exist, send a useful error message
-    res.status(200).send(`
-      <html>
-        <head><title>Shelfwave Development</title></head>
-        <body>
-          <h1>Development Mode</h1>
-          <p>The server is running in development mode.</p>
-          <p>Make sure to start your Vite development server with <code>npm run dev</code> in a separate terminal.</p>
-        </body>
-      </html>
-    `);
-  });
-}
+// API routes are already defined above
+// For all other routes that aren't API endpoints
+app.use('*', (req, res, next) => {
+  if (req.baseUrl.startsWith('/api')) {
+    return next();
+  }
+  
+  // Simple HTML response for non-API routes
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Shelfwave Development</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 650px; margin: 0 auto; padding: 20px; }
+          .container { text-align: center; margin-top: 50px; }
+          h1 { color: #333; }
+          .message { background-color: #f8f9fa; border-radius: 5px; padding: 20px; margin: 20px 0; }
+          .steps { text-align: left; }
+          code { background-color: #f1f1f1; padding: 2px 5px; border-radius: 3px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Shelfwave Development Server</h1>
+          <div class="message">
+            <p>The backend API server is running correctly at port ${PORT}.</p>
+            <p>To see the frontend, please start the Vite development server:</p>
+            <div class="steps">
+              <p>1. Open a new terminal window</p>
+              <p>2. Navigate to your project directory</p>
+              <p>3. Run: <code>npm run dev</code></p>
+              <p>4. Open <a href="http://localhost:5173">http://localhost:5173</a> in your browser</p>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
+});
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Server running in ${isProduction ? 'production' : 'development'} mode`);
+  console.log(`API is available at http://localhost:${PORT}/api`);
+  console.log(`For frontend, please run 'npm run dev' in a separate terminal`);
 });
