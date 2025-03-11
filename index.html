@@ -1,18 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>shelfwave-collection</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
-    <meta property="og:image" content="/og-image.png" />
+    <title>Shelfwave Collection</title>
+    <meta name="description" content="Your digital bookshelf" />
+    <script type="module" src="http://localhost:8080/src/main.tsx"></script>
   </head>
-
   <body>
     <div id="root"></div>
-    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+      // This redirects to the Vite dev server when in development mode
+      window.location.href = "http://localhost:5173" + window.location.pathname;
+    </script>
   </body>
 </html>

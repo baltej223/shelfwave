@@ -1,3 +1,4 @@
+
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -16,7 +17,13 @@ const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(express.json());
-app.use(express.static('./')); // For serving the React app
+app.use(express.static('public')); // For static assets
+
+// Create books directory if it doesn't exist
+const booksDir = path.join(__dirname, 'books');
+if (!fs.existsSync(booksDir)) {
+  fs.mkdirSync(booksDir, { recursive: true });
+}
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -326,13 +333,41 @@ app.post('/api/books', upload.fields([
   }
 });
 
-// Catch-all route for SPA
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
+// Configure proper handling for client routes in development and production
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction) {
+  // In production, serve from the dist directory
+  app.use(express.static('dist'));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  });
+} else {
+  // In development, forward to the Vite dev server
+  app.use('/', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    // For client-side routes, serve the index.html directly
+    if (fs.existsSync(path.join(__dirname, 'index.html'))) {
+      return res.sendFile(path.join(__dirname, 'index.html'));
+    }
+    // If index.html doesn't exist, send a useful error message
+    res.status(200).send(`
+      <html>
+        <head><title>Shelfwave Development</title></head>
+        <body>
+          <h1>Development Mode</h1>
+          <p>The server is running in development mode.</p>
+          <p>Make sure to start your Vite development server with <code>npm run dev</code> in a separate terminal.</p>
+        </body>
+      </html>
+    `);
+  });
+}
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Server running in ${isProduction ? 'production' : 'development'} mode`);
 });
-
