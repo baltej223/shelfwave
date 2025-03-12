@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Book as BookIcon, FileText, ExternalLink } from 'lucide-react';
+import { Download, Book as BookIcon, FileText, ExternalLink, BookOpen } from 'lucide-react';
 import { Book } from '../lib/api';
 import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 
 interface BookDetailViewProps {
   book: Book;
@@ -12,6 +13,7 @@ interface BookDetailViewProps {
 
 const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const navigate = useNavigate();
 
   const handleDownload = () => {
     if (!book.url) return;
@@ -31,6 +33,16 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
       link.click();
       document.body.removeChild(link);
       setTimeout(() => setIsDownloading(false), 1000);
+    }
+  };
+
+  const handleReadOnline = () => {
+    navigate(`/read/${book.id}`);
+  };
+
+  const handleOpenInNewTab = () => {
+    if (book.url) {
+      window.open(book.url, '_blank');
     }
   };
   
@@ -64,13 +76,14 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
             )}
           </div>
           
-          {book.url && (
+          <div className="mt-6 flex flex-col gap-3">
+            {/* Download Button */}
             <motion.button
               onClick={handleDownload}
-              className="mt-6 w-full py-3 px-4 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+              className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              disabled={isDownloading}
+              disabled={isDownloading || !book.url}
             >
               {isDownloading ? (
                 <>
@@ -88,7 +101,31 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
                 </>
               )}
             </motion.button>
-          )}
+
+            {/* Read Online Button */}
+            <motion.button
+              onClick={handleReadOnline}
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={!book.url}
+            >
+              <BookOpen className="h-5 w-5" />
+              <span>Read Online</span>
+            </motion.button>
+
+            {/* Open in New Tab Button */}
+            <motion.button
+              onClick={handleOpenInNewTab}
+              className="w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={!book.url}
+            >
+              <ExternalLink className="h-5 w-5" />
+              <span>Open in New Tab</span>
+            </motion.button>
+          </div>
         </motion.div>
         
         <motion.div 
