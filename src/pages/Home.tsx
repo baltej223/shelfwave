@@ -1,32 +1,43 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { fetchBooks, Book } from '../lib/api';
 import BookCard from '../components/BookCard';
-import { BookOpen, Loader } from 'lucide-react';
+import { BookOpen, Loader, RefreshCw } from 'lucide-react';
 
 const Home: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+
+  const loadBooks = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchBooks();
+      setBooks(data);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load books. Please try again later.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadBooks = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchBooks();
-        setBooks(data);
-        setError(null);
-      } catch (err) {
-        setError('Failed to load books. Please try again later.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadBooks();
   }, []);
+
+  // Check if we need to refresh the books list (after adding a new book)
+  useEffect(() => {
+    if (location.state && location.state.refresh) {
+      loadBooks();
+      // Clear the state so we don't refresh on every render
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   if (loading) {
     return (
@@ -46,9 +57,10 @@ const Home: React.FC = () => {
         <h2 className="text-xl font-medium mb-2">Something went wrong</h2>
         <p className="text-muted-foreground mb-6">{error}</p>
         <button 
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+          onClick={loadBooks}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md flex items-center gap-2"
         >
+          <RefreshCw className="h-4 w-4" />
           Try Again
         </button>
       </div>

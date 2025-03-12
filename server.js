@@ -1,3 +1,4 @@
+
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -254,6 +255,9 @@ app.get('/api/books/:id/file', (req, res) => {
         if (bookFile) {
           const filePath = path.join(bookDir, bookFile);
           return res.sendFile(filePath);
+        } else if (bookData.externalUrl) {
+          // If we have an external URL, redirect to it
+          return res.redirect(bookData.externalUrl);
         } else {
           return res.status(404).json({ error: 'Book file not found' });
         }
@@ -293,15 +297,24 @@ app.post('/api/books', upload.fields([
       fs.mkdirSync(bookDir, { recursive: true });
     }
     
+    let fileExtension = '';
+    
     // If URL is provided, download the file
     if (bookUrl) {
-      const fileExtension = path.extname(bookUrl) || '.pdf';
-      const bookFilePath = path.join(bookDir, `book${fileExtension}`);
-      
       try {
-        await downloadFile(bookUrl, bookFilePath);
+        // Extract file extension from URL or default to .pdf
+        fileExtension = path.extname(bookUrl) || '.pdf';
+        const bookFilePath = path.join(bookDir, `book${fileExtension}`);
+        
+        try {
+          await downloadFile(bookUrl, bookFilePath);
+        } catch (error) {
+          console.error('Failed to download from URL:', error);
+          // Don't return error, we'll store the URL instead
+        }
       } catch (error) {
-        return res.status(400).json({ error: 'Failed to download book from URL' });
+        // Log the error but continue - we'll store the URL reference
+        console.error('Error processing URL:', error);
       }
     }
     
@@ -312,6 +325,11 @@ app.post('/api/books', upload.fields([
       genre,
       url: `/api/books/${bookId}/file`
     };
+    
+    // Store external URL if provided and download failed
+    if (bookUrl) {
+      bookData.externalUrl = bookUrl;
+    }
     
     // Write book.json
     fs.writeFileSync(
@@ -325,7 +343,11 @@ app.post('/api/books', upload.fields([
       description || `# ${name}\n\nNo description provided.`
     );
     
-    res.status(201).json(bookData);
+    // Return success with the book data
+    res.status(201).json({
+      ...bookData,
+      coverImage: req.files && req.files['coverImage'] ? `/api/books/${bookId}/cover` : undefined
+    });
   } catch (error) {
     console.error('Error adding book:', error);
     res.status(500).json({ error: 'Failed to add book' });

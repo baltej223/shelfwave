@@ -11,6 +11,7 @@ export interface Book {
   name: string;
   genre: string;
   url: string;
+  externalUrl?: string;
   coverImage?: string;
   description?: string;
 }
@@ -21,7 +22,7 @@ export const fetchBooks = async (): Promise<Book[]> => {
     return response.data;
   } catch (error) {
     console.error('Error fetching books:', error);
-    return [];
+    throw error; // Propagate error to caller
   }
 };
 
@@ -31,11 +32,11 @@ export const fetchBook = async (id: string): Promise<Book | null> => {
     return response.data;
   } catch (error) {
     console.error(`Error fetching book ${id}:`, error);
-    return null;
+    throw error; // Propagate error to caller
   }
 };
 
-export const addBook = async (bookData: FormData): Promise<Book | null> => {
+export const addBook = async (bookData: FormData): Promise<Book> => {
   try {
     const response = await axios.post(`${API_URL}/books`, bookData, {
       headers: {
@@ -45,7 +46,7 @@ export const addBook = async (bookData: FormData): Promise<Book | null> => {
     return response.data;
   } catch (error) {
     console.error('Error adding book:', error);
-    return null;
+    throw error; // Propagate error to caller
   }
 };
 
@@ -55,6 +56,6 @@ export const fetchBookContent = async (id: string): Promise<string> => {
     return response.data.content;
   } catch (error) {
     console.error(`Error fetching book content for ${id}:`, error);
-    return '';
+    throw error; // Propagate error to caller
   }
 };

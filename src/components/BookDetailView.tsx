@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Book as BookIcon, FileText } from 'lucide-react';
+import { Download, Book as BookIcon, FileText, ExternalLink } from 'lucide-react';
 import { Book } from '../lib/api';
 import ReactMarkdown from 'react-markdown';
 
@@ -18,17 +18,23 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
     
     setIsDownloading(true);
     
-    const link = document.createElement('a');
-    link.href = book.url;
-    link.setAttribute('download', book.name);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => setIsDownloading(false), 1000);
+    if (book.externalUrl) {
+      // For external URLs, open in a new tab
+      window.open(book.externalUrl, '_blank');
+      setTimeout(() => setIsDownloading(false), 500);
+    } else {
+      // For local files, download
+      const link = document.createElement('a');
+      link.href = book.url;
+      link.setAttribute('download', book.name);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => setIsDownloading(false), 1000);
+    }
   };
   
-  const isLocalFile = book.url && !book.url.startsWith('http');
+  const isExternalLink = book.externalUrl && book.externalUrl.startsWith('http');
 
   return (
     <motion.div 
@@ -69,12 +75,16 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
               {isDownloading ? (
                 <>
                   <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Downloading...</span>
+                  <span>Processing...</span>
                 </>
               ) : (
                 <>
-                  <Download className="h-5 w-5" />
-                  <span>{isLocalFile ? "Open Book" : "Download"}</span>
+                  {isExternalLink ? (
+                    <ExternalLink className="h-5 w-5" />
+                  ) : (
+                    <Download className="h-5 w-5" />
+                  )}
+                  <span>{isExternalLink ? "Open Book" : "Download"}</span>
                 </>
               )}
             </motion.button>

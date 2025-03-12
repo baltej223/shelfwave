@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +36,6 @@ const AddBookForm: React.FC = () => {
   const handleBookFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setBookFile(e.target.files[0]);
-      // Clear URL if file is selected
       setBookUrl('');
     }
   };
@@ -106,16 +104,17 @@ const AddBookForm: React.FC = () => {
     try {
       const result = await addBook(formData);
       
-      if (result) {
-        toast({
-          title: "Book added successfully",
-          description: `${name} has been added to your library`,
-        });
-        navigate('/');
-      } else {
-        throw new Error('Failed to add book');
-      }
+      toast({
+        title: "Book added successfully",
+        description: `${name} has been added to your library`,
+      });
+      
+      setTimeout(() => {
+        navigate('/', { state: { refresh: true } });
+      }, 500);
+      
     } catch (error) {
+      console.error('Error adding book:', error);
       toast({
         title: "Failed to add book",
         description: "Please try again later",
