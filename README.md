@@ -1,5 +1,6 @@
-# Welcome to your Lovable project
-
+# selfwave
+checkout this demo video:
+<video src="https://github.com/baltej223/shelfwave/raw/refs/heads/main/Demo.mp4">
 ## Project info
 
 **URL**: https://lovable.dev/projects/50c9b2fd-d0d7-43a1-846a-fce4411e5116
