@@ -3,8 +3,8 @@ import axios from 'axios';
 
 // Configure API URL based on environment
 const API_URL = import.meta.env.DEV 
-  ? 'http://localhost:8080/api'  // Development - explicit URL pointing to port 8080
-  : '/api';                       // Production - relative path
+  ? '/api'  // Development - use relative path with proxy
+  : '/api'; // Production - relative path
 
 export interface Book {
   id: string;

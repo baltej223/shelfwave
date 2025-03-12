@@ -7,7 +7,7 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    port: 5173, // Default Vite dev server port
+    port: 5173, // Frontend dev server on 5173
     proxy: {
       // Proxy API requests to the Express server
       '/api': {
