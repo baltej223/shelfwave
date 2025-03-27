@@ -5,6 +5,7 @@ import { Download, Book as BookIcon, FileText, ExternalLink, BookOpen } from 'lu
 import { Book } from '../lib/api';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
+import { toast } from "@/hooks/use-toast";
 
 interface BookDetailViewProps {
   book: Book;
@@ -16,33 +17,66 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
   const navigate = useNavigate();
 
   const handleDownload = () => {
-    if (!book.url) return;
+    if (!book.url && !book.externalUrl) {
+      toast({
+        title: "Error",
+        description: "No download link available for this book",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsDownloading(true);
     
-    if (book.externalUrl) {
-      // For external URLs, open in a new tab
-      window.open(book.externalUrl, '_blank');
-      setTimeout(() => setIsDownloading(false), 500);
-    } else {
-      // For local files, download
-      const link = document.createElement('a');
-      link.href = book.url;
-      link.setAttribute('download', book.name);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    try {
+      if (book.externalUrl) {
+        // For external URLs, open in a new tab
+        window.open(book.externalUrl, '_blank');
+      } else if (book.url) {
+        // For local files, download
+        const link = document.createElement('a');
+        link.href = book.url;
+        link.setAttribute('download', book.name);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({
+        title: "Download failed",
+        description: "There was a problem downloading the book",
+        variant: "destructive"
+      });
+    } finally {
       setTimeout(() => setIsDownloading(false), 1000);
     }
   };
 
   const handleReadOnline = () => {
+    if (!book.url && !book.externalUrl) {
+      toast({
+        title: "Error",
+        description: "No link available to read this book",
+        variant: "destructive"
+      });
+      return;
+    }
     navigate(`/read/${book.id}`);
   };
 
   const handleOpenInNewTab = () => {
-    if (book.url) {
-      window.open(book.url, '_blank');
+    if (!book.url && !book.externalUrl) {
+      toast({
+        title: "Error",
+        description: "No link available to open this book",
+        variant: "destructive"
+      });
+      return;
+    }
+    const url = book.url || book.externalUrl;
+    if (url) {
+      window.open(url, '_blank');
     }
   };
   
@@ -68,6 +102,11 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
                 src={book.coverImage} 
                 alt={book.name} 
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback if image fails to load
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/placeholder.svg';
+                }}
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -80,10 +119,10 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
             {/* Download Button */}
             <motion.button
               onClick={handleDownload}
-              className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+              className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              disabled={isDownloading || !book.url}
+              disabled={isDownloading || (!book.url && !book.externalUrl)}
             >
               {isDownloading ? (
                 <>
@@ -105,10 +144,10 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
             {/* Read Online Button */}
             <motion.button
               onClick={handleReadOnline}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              disabled={!book.url}
+              disabled={!book.url && !book.externalUrl}
             >
               <BookOpen className="h-5 w-5" />
               <span>Read Online</span>
@@ -117,10 +156,10 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
             {/* Open in New Tab Button */}
             <motion.button
               onClick={handleOpenInNewTab}
-              className="w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+              className="w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              disabled={!book.url}
+              disabled={!book.url && !book.externalUrl}
             >
               <ExternalLink className="h-5 w-5" />
               <span>Open in New Tab</span>

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchBook } from '../lib/api';
 import BookReader from '../components/BookReader';
 import { Loader, AlertTriangle } from 'lucide-react';
+import { toast } from "@/hooks/use-toast";
 
 const BookReaderPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +28,20 @@ const BookReaderPage: React.FC = () => {
         }
         
         setBookName(bookData.name);
-        setBookUrl(bookData.url);
+        
+        // Check for either URL or externalUrl
+        if (bookData.url) {
+          setBookUrl(bookData.url);
+        } else if (bookData.externalUrl) {
+          setBookUrl(bookData.externalUrl);
+        } else {
+          setError('No readable version of this book is available');
+          toast({
+            title: "Error",
+            description: "This book does not have a readable version",
+            variant: "destructive"
+          });
+        }
       } catch (err) {
         setError('Failed to load book');
         console.error(err);

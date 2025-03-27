@@ -17,10 +17,14 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
   const [totalPages, setTotalPages] = useState(1);
   const [scale, setScale] = useState(1);
   const [showControls, setShowControls] = useState(true);
+  const [isExternalUrl, setIsExternalUrl] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
+    // Check if the URL is external (starts with http)
+    setIsExternalUrl(bookUrl.startsWith('http'));
+    
     // Simulate loading the book
     const timer = setTimeout(() => {
       setLoading(false);
@@ -33,7 +37,7 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [bookName, toast]);
+  }, [bookName, bookUrl, toast]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -93,6 +97,13 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
     setScale(prev => Math.max(prev - 0.1, 0.5));
   };
 
+  // URL Safety check - only allow http(s) URLs to be loaded in the iframe
+  const safeUrl = bookUrl.startsWith('http') 
+    ? bookUrl 
+    : bookUrl.startsWith('data:') 
+      ? bookUrl 
+      : `${window.location.origin}${bookUrl.startsWith('/') ? '' : '/'}${bookUrl}`;
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
@@ -134,6 +145,7 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
             <button 
               onClick={zoomOut}
               className="text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isExternalUrl}
             >
               <Minimize className="h-5 w-5" />
             </button>
@@ -141,6 +153,7 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
             <button 
               onClick={zoomIn}
               className="text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isExternalUrl}
             >
               <Maximize className="h-5 w-5" />
             </button>
@@ -160,15 +173,17 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
         onMouseMove={() => !showControls && setShowControls(true)}
       >
         {/* Page Turn Buttons - Left */}
-        <div className="absolute left-0 inset-y-0 flex items-center z-10">
-          <button 
-            onClick={handlePrevPage}
-            className="h-16 w-16 -ml-8 hover:ml-0 transition-all bg-gray-200/80 hover:bg-gray-300/90 text-gray-800 rounded-r-full flex items-center justify-end pr-4"
-            disabled={currentPage <= 1}
-          >
-            <ChevronLeft className="h-8 w-8" />
-          </button>
-        </div>
+        {!isExternalUrl && (
+          <div className="absolute left-0 inset-y-0 flex items-center z-10">
+            <button 
+              onClick={handlePrevPage}
+              className="h-16 w-16 -ml-8 hover:ml-0 transition-all bg-gray-200/80 hover:bg-gray-300/90 text-gray-800 rounded-r-full flex items-center justify-end pr-4"
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </button>
+          </div>
+        )}
 
         {/* Book Content */}
         <div 
@@ -177,31 +192,34 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
         >
           <iframe 
             ref={iframeRef}
-            src={bookUrl} 
+            src={safeUrl} 
             title={bookName}
             className="w-full h-full transition-transform duration-300"
             style={{ 
               border: 'none',
-              transform: `scale(${scale})`,
+              transform: isExternalUrl ? 'none' : `scale(${scale})`,
               boxShadow: fullscreen ? 'none' : '0 4px 20px rgba(0,0,0,0.1)'
             }}
+            sandbox={isExternalUrl ? "" : "allow-same-origin allow-scripts"}
           />
         </div>
 
         {/* Page Turn Buttons - Right */}
-        <div className="absolute right-0 inset-y-0 flex items-center z-10">
-          <button 
-            onClick={handleNextPage}
-            className="h-16 w-16 -mr-8 hover:mr-0 transition-all bg-gray-200/80 hover:bg-gray-300/90 text-gray-800 rounded-l-full flex items-center justify-start pl-4"
-            disabled={currentPage >= totalPages}
-          >
-            <ChevronRight className="h-8 w-8" />
-          </button>
-        </div>
+        {!isExternalUrl && (
+          <div className="absolute right-0 inset-y-0 flex items-center z-10">
+            <button 
+              onClick={handleNextPage}
+              className="h-16 w-16 -mr-8 hover:mr-0 transition-all bg-gray-200/80 hover:bg-gray-300/90 text-gray-800 rounded-l-full flex items-center justify-start pl-4"
+              disabled={currentPage >= totalPages}
+            >
+              <ChevronRight className="h-8 w-8" />
+            </button>
+          </div>
+        )}
       </div>
       
       {/* Reader Footer */}
-      {showControls && (
+      {showControls && !isExternalUrl && (
         <motion.div 
           className={`p-4 ${fullscreen ? 'bg-black text-white border-gray-800' : 'border-t'} flex items-center justify-between`}
           initial={{ opacity: 0, y: 20 }}
