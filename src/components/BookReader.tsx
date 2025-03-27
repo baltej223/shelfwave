@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ArrowRight, X, Menu, Loader, ChevronLeft, ChevronRight, Maximize, Minimize, BookOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X, Menu, Loader, ChevronLeft, ChevronRight, Maximize, Minimize, BookOpen, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from "../hooks/use-toast";
 
@@ -19,36 +18,62 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
   const [showControls, setShowControls] = useState(true);
   const [isExternalUrl, setIsExternalUrl] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     // Check if the URL is external (starts with http)
-    setIsExternalUrl(bookUrl.startsWith('http'));
+    setIsExternalUrl(bookUrl?.startsWith('http') || false);
     
-    // Reset any previous errors
+    // Reset any previous errors and loading state
     setError(null);
+    setLoading(true);
+    setIframeLoaded(false);
     
-    // Simulate loading the book
+    // Validate the bookUrl
+    if (!bookUrl) {
+      setError('Book source not available');
+      setLoading(false);
+      toast({
+        title: "Error",
+        description: "Unable to load book: Source not available",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if the bookUrl points to a Supabase storage and verify it exists
+    if (bookUrl.includes('supabase') && !bookUrl.startsWith('http')) {
+      fetch(bookUrl, { method: 'HEAD' })
+        .then(response => {
+          if (!response.ok) {
+            console.error("Book file access error:", response.status);
+            if (response.status === 404) {
+              throw new Error('Storage bucket not found or file does not exist');
+            }
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response;
+        })
+        .catch(error => {
+          console.error("Error checking book URL:", error);
+          setError('The book file could not be accessed. The storage bucket might be missing or the file has been deleted.');
+          toast({
+            title: "Error",
+            description: "Book file not accessible. Check that the storage bucket exists.",
+            variant: "destructive"
+          });
+          setLoading(false);
+        });
+    }
+    
+    // Set a mock total pages count for the reader
+    setTotalPages(Math.floor(Math.random() * 100) + 30);
+    
+    // Simulate loading the book with a timeout
     const timer = setTimeout(() => {
       setLoading(false);
-      
-      if (!bookUrl) {
-        setError('Book source not available');
-        toast({
-          title: "Error",
-          description: "Unable to load book: Source not available",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Let's set a mock total pages count - in a real app this would come from PDF metadata
-      setTotalPages(Math.floor(Math.random() * 100) + 30);
-      toast({
-        title: "Book loaded",
-        description: "Enjoy reading " + bookName,
-      });
     }, 1500);
 
     return () => clearTimeout(timer);
@@ -129,6 +154,24 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
   // Get safe URL for iframe
   const safeUrl = getSafeUrl();
 
+  const handleIframeLoad = () => {
+    setIframeLoaded(true);
+    toast({
+      title: "Book loaded",
+      description: "Enjoy reading " + bookName,
+    });
+  };
+
+  const handleIframeError = () => {
+    setError('Failed to load book content');
+    setIframeLoaded(false);
+    toast({
+      title: "Error",
+      description: "Failed to load book content. The file may be inaccessible or in an unsupported format.",
+      variant: "destructive"
+    });
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
@@ -146,7 +189,7 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
         <div className="text-center max-w-md">
           <div className="bg-destructive/10 p-4 rounded-full mx-auto mb-6 w-16 h-16 flex items-center justify-center">
-            <X className="h-8 w-8 text-destructive" />
+            <AlertTriangle className="h-8 w-8 text-destructive" />
           </div>
           <h3 className="text-lg font-medium mb-2">Unable to Load Book</h3>
           <p className="text-muted-foreground mb-6">
@@ -220,7 +263,7 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
         onMouseMove={() => !showControls && setShowControls(true)}
       >
         {/* Page Turn Buttons - Left */}
-        {!isExternalUrl && (
+        {!isExternalUrl && iframeLoaded && (
           <div className="absolute left-0 inset-y-0 flex items-center z-10">
             <button 
               onClick={handlePrevPage}
@@ -237,30 +280,57 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
           className="flex-1 flex items-center justify-center overflow-hidden"
           onClick={() => setShowControls(!showControls)}
         >
-          <iframe 
-            ref={iframeRef}
-            src={safeUrl} 
-            title={bookName}
-            className="w-full h-full transition-transform duration-300"
-            style={{ 
-              border: 'none',
-              transform: isExternalUrl ? 'none' : `scale(${scale})`,
-              boxShadow: fullscreen ? 'none' : '0 4px 20px rgba(0,0,0,0.1)'
-            }}
-            sandbox={isExternalUrl ? "allow-scripts allow-same-origin allow-forms" : "allow-same-origin allow-scripts"}
-            onError={() => {
-              setError('Failed to load book content');
-              toast({
-                title: "Error",
-                description: "Failed to load book content",
-                variant: "destructive"
-              });
-            }}
-          />
+          {!loading && !error && (
+            <iframe 
+              ref={iframeRef}
+              src={safeUrl} 
+              title={bookName}
+              className="w-full h-full transition-transform duration-300"
+              style={{ 
+                border: 'none',
+                transform: isExternalUrl ? 'none' : `scale(${scale})`,
+                boxShadow: fullscreen ? 'none' : '0 4px 20px rgba(0,0,0,0.1)',
+                visibility: iframeLoaded || isExternalUrl ? 'visible' : 'hidden'
+              }}
+              sandbox={isExternalUrl ? "allow-scripts allow-same-origin allow-forms" : "allow-same-origin allow-scripts"}
+              onLoad={handleIframeLoad}
+              onError={handleIframeError}
+            />
+          )}
+          
+          {loading && !error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background">
+              <div className="text-center">
+                <Loader className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
+                <h3 className="text-lg font-medium">Loading book...</h3>
+                <p className="text-muted-foreground">Preparing your reading experience</p>
+              </div>
+            </div>
+          )}
+          
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background">
+              <div className="text-center max-w-md p-6">
+                <div className="bg-destructive/10 p-4 rounded-full mx-auto mb-6 w-16 h-16 flex items-center justify-center">
+                  <AlertTriangle className="h-8 w-8 text-destructive" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">Unable to Load Book</h3>
+                <p className="text-muted-foreground mb-6">
+                  {error || "The book source is unavailable. Please try again later or contact support."}
+                </p>
+                <button 
+                  onClick={onClose}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+                >
+                  Back to Book Details
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Page Turn Buttons - Right */}
-        {!isExternalUrl && (
+        {!isExternalUrl && iframeLoaded && (
           <div className="absolute right-0 inset-y-0 flex items-center z-10">
             <button 
               onClick={handleNextPage}
@@ -274,7 +344,7 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
       </div>
       
       {/* Reader Footer */}
-      {showControls && !isExternalUrl && (
+      {showControls && !isExternalUrl && iframeLoaded && (
         <motion.div 
           className={`p-4 ${fullscreen ? 'bg-black text-white border-gray-800' : 'border-t'} flex items-center justify-between`}
           initial={{ opacity: 0, y: 20 }}

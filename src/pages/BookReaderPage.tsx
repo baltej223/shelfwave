@@ -41,6 +41,29 @@ const BookReaderPage: React.FC = () => {
         // Check for either URL or externalUrl
         if (bookData.url) {
           console.log("Using book file URL:", bookData.url);
+          
+          // For Supabase URLs, check if they are accessible
+          if (bookData.url.includes('supabase')) {
+            try {
+              const response = await fetch(bookData.url, { method: 'HEAD' });
+              if (!response.ok) {
+                console.error("Book file not accessible:", response.status);
+                if (response.status === 404) {
+                  setError('The book file could not be found. The storage bucket might be missing or the file has been deleted.');
+                  toast({
+                    title: "Error",
+                    description: "Book file not found. The storage bucket might be missing.",
+                    variant: "destructive"
+                  });
+                  setLoading(false);
+                  return;
+                }
+              }
+            } catch (error) {
+              console.error("Error checking book URL:", error);
+            }
+          }
+          
           setBookUrl(bookData.url);
         } else if (bookData.externalUrl) {
           console.log("Using external URL:", bookData.externalUrl);

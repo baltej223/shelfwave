@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Book as BookIcon, FileText, ExternalLink, BookOpen } from 'lucide-react';
@@ -36,17 +37,36 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
           description: "Opening book in a new tab",
         });
       } else if (book.url) {
-        // For local files, download
-        const link = document.createElement('a');
-        link.href = book.url;
-        link.setAttribute('download', book.name);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({
-          title: "Success",
-          description: "Book download started",
-        });
+        // For Supabase URLs, handle with more error checking
+        fetch(book.url)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.blob();
+          })
+          .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', book.name);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            toast({
+              title: "Success",
+              description: "Book download started",
+            });
+          })
+          .catch(error => {
+            console.error("Download error:", error);
+            toast({
+              title: "Download failed",
+              description: "The book file could not be accessed. It may have been deleted or the storage bucket might be missing.",
+              variant: "destructive"
+            });
+          });
       }
     } catch (error) {
       console.error("Download error:", error);
@@ -70,6 +90,7 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
       return;
     }
     
+    // Navigate to reader page
     navigate(`/read/${book.id}`);
     toast({
       title: "Opening reader",
@@ -89,6 +110,16 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
     
     const url = book.url || book.externalUrl;
     if (url) {
+      // For Supabase URLs, handle with more error checking
+      if (url.includes('supabase') && !url.includes('http')) {
+        toast({
+          title: "Error opening book",
+          description: "The book file could not be accessed. It may have been deleted or the storage bucket might be missing.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       window.open(url, '_blank');
       toast({
         title: "Success",
