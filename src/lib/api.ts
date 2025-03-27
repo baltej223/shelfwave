@@ -81,7 +81,8 @@ export const addBook = async (formData: FormData): Promise<Book> => {
         name,
         genre,
         description,
-        external_url: bookUrl || null
+        external_url: bookUrl || null,
+        user_id: userId // Add user_id field to the record
       })
       .select()
       .single();
