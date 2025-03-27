@@ -16,7 +16,11 @@ const BookReaderPage: React.FC = () => {
 
   useEffect(() => {
     const loadBook = async () => {
-      if (!id) return;
+      if (!id) {
+        setError('Book ID is missing');
+        setLoading(false);
+        return;
+      }
       
       try {
         setLoading(true);
@@ -24,6 +28,11 @@ const BookReaderPage: React.FC = () => {
         
         if (!bookData) {
           setError('Book not found');
+          toast({
+            title: "Error",
+            description: "Book not found",
+            variant: "destructive"
+          });
           return;
         }
         
@@ -31,8 +40,10 @@ const BookReaderPage: React.FC = () => {
         
         // Check for either URL or externalUrl
         if (bookData.url) {
+          console.log("Using book file URL:", bookData.url);
           setBookUrl(bookData.url);
         } else if (bookData.externalUrl) {
+          console.log("Using external URL:", bookData.externalUrl);
           setBookUrl(bookData.externalUrl);
         } else {
           setError('No readable version of this book is available');
@@ -43,8 +54,8 @@ const BookReaderPage: React.FC = () => {
           });
         }
       } catch (err) {
+        console.error("Error loading book:", err);
         setError('Failed to load book');
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -73,7 +84,7 @@ const BookReaderPage: React.FC = () => {
           <AlertTriangle className="h-10 w-10 text-destructive" />
         </div>
         <h2 className="text-xl font-medium mb-2">Something went wrong</h2>
-        <p className="text-muted-foreground mb-6">{error || 'Book not found'}</p>
+        <p className="text-muted-foreground mb-6">{error || 'Book URL not available'}</p>
         <button 
           onClick={() => navigate(`/book/${id}`)}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md"

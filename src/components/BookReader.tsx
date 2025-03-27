@@ -18,6 +18,7 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
   const [scale, setScale] = useState(1);
   const [showControls, setShowControls] = useState(true);
   const [isExternalUrl, setIsExternalUrl] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
 
@@ -25,9 +26,23 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
     // Check if the URL is external (starts with http)
     setIsExternalUrl(bookUrl.startsWith('http'));
     
+    // Reset any previous errors
+    setError(null);
+    
     // Simulate loading the book
     const timer = setTimeout(() => {
       setLoading(false);
+      
+      if (!bookUrl) {
+        setError('Book source not available');
+        toast({
+          title: "Error",
+          description: "Unable to load book: Source not available",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       // Let's set a mock total pages count - in a real app this would come from PDF metadata
       setTotalPages(Math.floor(Math.random() * 100) + 30);
       toast({
@@ -97,12 +112,22 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
     setScale(prev => Math.max(prev - 0.1, 0.5));
   };
 
-  // URL Safety check - only allow http(s) URLs to be loaded in the iframe
-  const safeUrl = bookUrl.startsWith('http') 
-    ? bookUrl 
-    : bookUrl.startsWith('data:') 
-      ? bookUrl 
-      : `${window.location.origin}${bookUrl.startsWith('/') ? '' : '/'}${bookUrl}`;
+  // URL Safety check - make sure we have a valid URL to display
+  const getSafeUrl = () => {
+    if (!bookUrl) return '';
+    
+    if (bookUrl.startsWith('http')) {
+      return bookUrl;
+    } else if (bookUrl.startsWith('data:')) {
+      return bookUrl;
+    } else {
+      // For relative URLs, make sure they start with a slash
+      return `${window.location.origin}${bookUrl.startsWith('/') ? '' : '/'}${bookUrl}`;
+    }
+  };
+
+  // Get safe URL for iframe
+  const safeUrl = getSafeUrl();
 
   if (loading) {
     return (
@@ -111,6 +136,28 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
           <Loader className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
           <h3 className="text-lg font-medium">Loading book...</h3>
           <p className="text-muted-foreground">Preparing your reading experience</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !safeUrl) {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-destructive/10 p-4 rounded-full mx-auto mb-6 w-16 h-16 flex items-center justify-center">
+            <X className="h-8 w-8 text-destructive" />
+          </div>
+          <h3 className="text-lg font-medium mb-2">Unable to Load Book</h3>
+          <p className="text-muted-foreground mb-6">
+            {error || "The book source is unavailable. Please try again later or contact support."}
+          </p>
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+          >
+            Back to Book Details
+          </button>
         </div>
       </div>
     );
@@ -200,7 +247,15 @@ const BookReader: React.FC<BookReaderProps> = ({ bookUrl, bookName, onClose }) =
               transform: isExternalUrl ? 'none' : `scale(${scale})`,
               boxShadow: fullscreen ? 'none' : '0 4px 20px rgba(0,0,0,0.1)'
             }}
-            sandbox={isExternalUrl ? "" : "allow-same-origin allow-scripts"}
+            sandbox={isExternalUrl ? "allow-scripts allow-same-origin allow-forms" : "allow-same-origin allow-scripts"}
+            onError={() => {
+              setError('Failed to load book content');
+              toast({
+                title: "Error",
+                description: "Failed to load book content",
+                variant: "destructive"
+              });
+            }}
           />
         </div>
 

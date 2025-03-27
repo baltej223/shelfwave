@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Book as BookIcon, FileText, ExternalLink, BookOpen } from 'lucide-react';
@@ -32,6 +31,10 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
       if (book.externalUrl) {
         // For external URLs, open in a new tab
         window.open(book.externalUrl, '_blank');
+        toast({
+          title: "Success",
+          description: "Opening book in a new tab",
+        });
       } else if (book.url) {
         // For local files, download
         const link = document.createElement('a');
@@ -40,6 +43,10 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        toast({
+          title: "Success",
+          description: "Book download started",
+        });
       }
     } catch (error) {
       console.error("Download error:", error);
@@ -62,7 +69,12 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
       });
       return;
     }
+    
     navigate(`/read/${book.id}`);
+    toast({
+      title: "Opening reader",
+      description: `Loading ${book.name}`,
+    });
   };
 
   const handleOpenInNewTab = () => {
@@ -74,9 +86,14 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
       });
       return;
     }
+    
     const url = book.url || book.externalUrl;
     if (url) {
       window.open(url, '_blank');
+      toast({
+        title: "Success",
+        description: "Opening book in a new tab",
+      });
     }
   };
   
@@ -103,7 +120,6 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
                 alt={book.name} 
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  // Fallback if image fails to load
                   e.currentTarget.onerror = null;
                   e.currentTarget.src = '/placeholder.svg';
                 }}
@@ -116,7 +132,6 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
           </div>
           
           <div className="mt-6 flex flex-col gap-3">
-            {/* Download Button */}
             <motion.button
               onClick={handleDownload}
               className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
@@ -141,7 +156,6 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
               )}
             </motion.button>
 
-            {/* Read Online Button */}
             <motion.button
               onClick={handleReadOnline}
               className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
@@ -153,7 +167,6 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
               <span>Read Online</span>
             </motion.button>
 
-            {/* Open in New Tab Button */}
             <motion.button
               onClick={handleOpenInNewTab}
               className="w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
