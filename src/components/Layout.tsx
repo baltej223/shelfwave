@@ -2,11 +2,20 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, Plus, BookIcon } from "lucide-react";
+import { BookOpen, Plus, LogOut, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
+  const { user, signOut } = useAuth();
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -34,12 +43,38 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <span className="text-xl font-medium">Bookshelf</span>
           </Link>
           <nav className="flex items-center space-x-6">
-            <NavLink to="/" currentPath={location.pathname}>
-              Home
-            </NavLink>
-            <NavLink to="/add" currentPath={location.pathname}>
-              Add Book
-            </NavLink>
+            {user ? (
+              <>
+                <NavLink to="/" currentPath={location.pathname}>
+                  Home
+                </NavLink>
+                <NavLink to="/add" currentPath={location.pathname}>
+                  Add Book
+                </NavLink>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full">
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem className="text-muted-foreground">
+                      {user.email}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => signOut()}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <Link to="/auth">
+                <Button variant="default" size="sm">
+                  Sign In
+                </Button>
+              </Link>
+            )}
           </nav>
         </div>
       </motion.header>

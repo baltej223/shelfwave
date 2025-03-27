@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 8080,
     proxy: {
-      // Proxy API requests to the Express server
+      // Proxy API requests to the Express server during development
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
@@ -26,4 +26,8 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    // Add global constants for Supabase
+    'process.env': {}
+  }
 }));
