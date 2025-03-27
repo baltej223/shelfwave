@@ -1,11 +1,20 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Book as BookIcon, FileText, ExternalLink, BookOpen } from 'lucide-react';
-import { Book } from '../lib/api';
+import { Download, Book as BookIcon, FileText, ExternalLink, BookOpen, Trash2 } from 'lucide-react';
+import { Book, deleteBook } from '../lib/api';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface BookDetailViewProps {
   book: Book;
@@ -14,6 +23,8 @@ interface BookDetailViewProps {
 
 const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const navigate = useNavigate();
 
   const handleDownload = () => {
@@ -30,14 +41,12 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
     
     try {
       if (book.externalUrl) {
-        // For external URLs, open in a new tab
         window.open(book.externalUrl, '_blank');
         toast({
           title: "Success",
           description: "Opening book in a new tab",
         });
       } else if (book.url) {
-        // For Supabase URLs, handle with more error checking
         fetch(book.url)
           .then(response => {
             if (!response.ok) {
@@ -90,7 +99,6 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
       return;
     }
     
-    // Navigate to reader page
     navigate(`/read/${book.id}`);
     toast({
       title: "Opening reader",
@@ -110,7 +118,6 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
     
     const url = book.url || book.externalUrl;
     if (url) {
-      // For Supabase URLs, handle with more error checking
       if (url.includes('supabase') && !url.includes('http')) {
         toast({
           title: "Error opening book",
@@ -127,7 +134,29 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
       });
     }
   };
-  
+
+  const handleDeleteBook = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteBook(book.id);
+      toast({
+        title: "Success",
+        description: "Book has been deleted",
+      });
+      navigate('/', { state: { refresh: true } });
+    } catch (error) {
+      console.error("Error deleting book:", error);
+      toast({
+        title: "Deletion failed",
+        description: "There was a problem deleting the book",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   const isExternalLink = book.externalUrl && book.externalUrl.startsWith('http');
 
   return (
@@ -208,6 +237,26 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
               <ExternalLink className="h-5 w-5" />
               <span>Open in New Tab</span>
             </motion.button>
+
+            <motion.button
+              onClick={() => setShowDeleteDialog(true)}
+              className="w-full py-3 px-4 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none mt-4"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-5 w-5" />
+                  <span>Delete Book</span>
+                </>
+              )}
+            </motion.button>
           </div>
         </motion.div>
         
@@ -235,6 +284,23 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
           </div>
         </motion.div>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this book?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete "{book.name}" from your bookshelf.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBook} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 };

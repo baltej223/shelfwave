@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Book {
@@ -178,4 +177,61 @@ export const fetchBookContent = async (id: string): Promise<string> => {
   }
 
   return book?.description || '';
+};
+
+export const deleteBook = async (id: string): Promise<void> => {
+  try {
+    // Get book data to check for file URLs
+    const { data: book, error: fetchError } = await supabase
+      .from('books')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      console.error(`Error fetching book ${id} for deletion:`, fetchError);
+      throw fetchError;
+    }
+
+    // Check if we have files to delete in storage
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && book.book_file_url || book.cover_image_url) {
+      try {
+        const userId = user.id;
+        const storagePath = `${userId}/${id}`;
+        
+        // Delete all files in the book's folder
+        const { data: storageFiles, error: storageError } = await supabase
+          .storage
+          .from('book_files')
+          .list(storagePath);
+          
+        if (!storageError && storageFiles && storageFiles.length > 0) {
+          const filesToRemove = storageFiles.map(file => `${storagePath}/${file.name}`);
+          
+          await supabase
+            .storage
+            .from('book_files')
+            .remove(filesToRemove);
+        }
+      } catch (storageDeleteError) {
+        console.error('Error deleting storage files:', storageDeleteError);
+        // Continue with database deletion even if storage deletion fails
+      }
+    }
+
+    // Delete the book from the database
+    const { error: deleteError } = await supabase
+      .from('books')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      console.error(`Error deleting book ${id}:`, deleteError);
+      throw deleteError;
+    }
+  } catch (error) {
+    console.error('Error in deleteBook:', error);
+    throw error;
+  }
 };
