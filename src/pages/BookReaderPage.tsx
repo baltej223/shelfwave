@@ -43,24 +43,36 @@ const BookReaderPage: React.FC = () => {
           console.log("Using book file URL:", bookData.url);
           
           // For Supabase URLs, check if they are accessible
-          if (bookData.url.includes('supabase')) {
+          if (bookData.url.includes('supabase.co/storage')) {
             try {
               const response = await fetch(bookData.url, { method: 'HEAD' });
               if (!response.ok) {
                 console.error("Book file not accessible:", response.status);
-                if (response.status === 404) {
-                  setError('The book file could not be found. The storage bucket might be missing or the file has been deleted.');
+                if (response.status === 404 || response.statusText.includes("Not Found")) {
+                  setError('The book file could not be found. The storage bucket might not be properly set up or the file has been deleted.');
                   toast({
                     title: "Error",
-                    description: "Book file not found. The storage bucket might be missing.",
+                    description: "Book file not found or storage bucket not properly set up.",
                     variant: "destructive"
                   });
                   setLoading(false);
                   return;
                 }
               }
-            } catch (error) {
+            } catch (error: any) {
               console.error("Error checking book URL:", error);
+              
+              // Check for specific error types like "Bucket not found"
+              if (error.toString().includes("Bucket not found")) {
+                setError('The storage bucket "book_files" was not found. Please make sure the storage bucket is properly set up in Supabase.');
+                toast({
+                  title: "Storage Error",
+                  description: "Storage bucket not found or not properly set up.",
+                  variant: "destructive"
+                });
+                setLoading(false);
+                return;
+              }
             }
           }
           

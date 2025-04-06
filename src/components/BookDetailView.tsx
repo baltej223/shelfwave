@@ -46,36 +46,68 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
           title: "Success",
           description: "Opening book in a new tab",
         });
+        setIsDownloading(false);
       } else if (book.url) {
-        fetch(book.url)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.blob();
-          })
-          .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', book.name);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-            toast({
-              title: "Success",
-              description: "Book download started",
+        // Check if it's a Supabase URL
+        if (book.url.includes('supabase.co/storage')) {
+          // First do a HEAD request to check if the file exists
+          fetch(book.url, { method: 'HEAD' })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+              }
+              return fetch(book.url);
+            })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+              }
+              return response.blob();
+            })
+            .then(blob => {
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', `${book.name}.pdf`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+              toast({
+                title: "Success",
+                description: "Book download started",
+              });
+            })
+            .catch(error => {
+              console.error("Download error:", error);
+              
+              // Check for specific error types
+              if (error.message.includes("404") || error.toString().includes("Bucket not found")) {
+                toast({
+                  title: "Download failed",
+                  description: "The book file could not be found. It may have been deleted or the storage bucket might not be properly set up.",
+                  variant: "destructive"
+                });
+              } else {
+                toast({
+                  title: "Download failed",
+                  description: "There was a problem downloading the book",
+                  variant: "destructive"
+                });
+              }
+            })
+            .finally(() => {
+              setIsDownloading(false);
             });
-          })
-          .catch(error => {
-            console.error("Download error:", error);
-            toast({
-              title: "Download failed",
-              description: "The book file could not be accessed. It may have been deleted or the storage bucket might be missing.",
-              variant: "destructive"
-            });
+        } else {
+          // For non-Supabase URLs
+          window.open(book.url, '_blank');
+          toast({
+            title: "Success",
+            description: "Opening book in a new tab",
           });
+          setIsDownloading(false);
+        }
       }
     } catch (error) {
       console.error("Download error:", error);
@@ -84,8 +116,7 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
         description: "There was a problem downloading the book",
         variant: "destructive"
       });
-    } finally {
-      setTimeout(() => setIsDownloading(false), 1000);
+      setIsDownloading(false);
     }
   };
 
@@ -118,20 +149,45 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, description }) =>
     
     const url = book.url || book.externalUrl;
     if (url) {
-      if (url.includes('supabase') && !url.includes('http')) {
+      // Check if it's a Supabase URL
+      if (url.includes('supabase.co/storage')) {
+        // First check if the file exists
+        fetch(url, { method: 'HEAD' })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            window.open(url, '_blank');
+            toast({
+              title: "Success",
+              description: "Opening book in a new tab",
+            });
+          })
+          .catch(error => {
+            console.error("Error opening file:", error);
+            
+            // Check for specific error types
+            if (error.message.includes("404") || error.toString().includes("Bucket not found")) {
+              toast({
+                title: "Error opening book",
+                description: "The book file could not be found. It may have been deleted or the storage bucket might not be properly set up.",
+                variant: "destructive"
+              });
+            } else {
+              toast({
+                title: "Error opening book",
+                description: "There was a problem opening the book",
+                variant: "destructive"
+              });
+            }
+          });
+      } else {
+        window.open(url, '_blank');
         toast({
-          title: "Error opening book",
-          description: "The book file could not be accessed. It may have been deleted or the storage bucket might be missing.",
-          variant: "destructive"
+          title: "Success",
+          description: "Opening book in a new tab",
         });
-        return;
       }
-      
-      window.open(url, '_blank');
-      toast({
-        title: "Success",
-        description: "Opening book in a new tab",
-      });
     }
   };
 

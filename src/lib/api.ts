@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Book {
@@ -107,11 +108,17 @@ export const addBook = async (formData: FormData): Promise<Book> => {
       
       if (fileError) throw fileError;
       
-      const { data: { publicUrl } } = supabase.storage
-        .from('book_files')
-        .getPublicUrl(filePath);
-      
-      bookFileUrl = publicUrl;
+      // Get the public URL with error handling
+      try {
+        const { data: { publicUrl } } = supabase.storage
+          .from('book_files')
+          .getPublicUrl(filePath);
+        
+        bookFileUrl = publicUrl;
+      } catch (urlError) {
+        console.error('Error getting public URL for book file:', urlError);
+        // Don't throw, we can still create the book without the file URL
+      }
     }
     
     // Upload cover image if provided
@@ -128,11 +135,17 @@ export const addBook = async (formData: FormData): Promise<Book> => {
       
       if (imageError) throw imageError;
       
-      const { data: { publicUrl } } = supabase.storage
-        .from('book_files')
-        .getPublicUrl(imagePath);
-      
-      coverImageUrl = publicUrl;
+      // Get the public URL with error handling
+      try {
+        const { data: { publicUrl } } = supabase.storage
+          .from('book_files')
+          .getPublicUrl(imagePath);
+        
+        coverImageUrl = publicUrl;
+      } catch (urlError) {
+        console.error('Error getting public URL for cover image:', urlError);
+        // Don't throw, we can still create the book without the image URL
+      }
     }
     
     // Update the book record with the file URLs
@@ -195,7 +208,7 @@ export const deleteBook = async (id: string): Promise<void> => {
 
     // Check if we have files to delete in storage
     const { data: { user } } = await supabase.auth.getUser();
-    if (user && book.book_file_url || book.cover_image_url) {
+    if (user && (book.book_file_url || book.cover_image_url)) {
       try {
         const userId = user.id;
         const storagePath = `${userId}/${id}`;
