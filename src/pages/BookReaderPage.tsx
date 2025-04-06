@@ -5,6 +5,7 @@ import { fetchBook } from '../lib/api';
 import BookReader from '../components/BookReader';
 import { Loader, AlertTriangle } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 const BookReaderPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,41 +43,74 @@ const BookReaderPage: React.FC = () => {
         if (bookData.url) {
           console.log("Using book file URL:", bookData.url);
           
-          // For Supabase URLs, check if they are accessible
-          if (bookData.url.includes('supabase.co/storage')) {
+          // For Supabase URLs that contain the storage path pattern
+          if (bookData.url.includes('supabase.co/storage/v1/object/public/book_files')) {
             try {
-              const response = await fetch(bookData.url, { method: 'HEAD' });
-              if (!response.ok) {
-                console.error("Book file not accessible:", response.status);
-                if (response.status === 404 || response.statusText.includes("Not Found")) {
-                  setError('The book file could not be found. The storage bucket might not be properly set up or the file has been deleted.');
+              // Extract the path from the URL to check if the file exists
+              const urlParts = bookData.url.split('public/book_files/');
+              if (urlParts.length > 1) {
+                const filePath = urlParts[1];
+                console.log("Checking if file exists in storage:", filePath);
+                
+                // Get file information from storage to check if it exists
+                const { data, error: storageError } = await supabase
+                  .storage
+                  .from('book_files')
+                  .getPublicUrl(filePath);
+                
+                if (storageError) {
+                  console.error("Storage error:", storageError);
+                  setError('The book file could not be found in storage. The file may have been deleted or the storage bucket may not be properly configured.');
                   toast({
-                    title: "Error",
-                    description: "Book file not found or storage bucket not properly set up.",
+                    title: "Storage Error",
+                    description: "Book file not accessible.",
                     variant: "destructive"
                   });
                   setLoading(false);
                   return;
                 }
+                
+                // Use the public URL returned by Supabase
+                if (data && data.publicUrl) {
+                  console.log("Using public URL:", data.publicUrl);
+                  setBookUrl(data.publicUrl);
+                } else {
+                  setError('Could not generate a public URL for this book file.');
+                  toast({
+                    title: "Error",
+                    description: "Unable to access book file.",
+                    variant: "destructive"
+                  });
+                }
+              } else {
+                // Fallback to using the original URL
+                setBookUrl(bookData.url);
               }
             } catch (error: any) {
               console.error("Error checking book URL:", error);
               
-              // Check for specific error types like "Bucket not found"
               if (error.toString().includes("Bucket not found")) {
-                setError('The storage bucket "book_files" was not found. Please make sure the storage bucket is properly set up in Supabase.');
+                setError('The storage bucket "book_files" was not found or is not properly configured. Please contact the administrator.');
                 toast({
                   title: "Storage Error",
-                  description: "Storage bucket not found or not properly set up.",
+                  description: "Storage bucket not found or not properly configured.",
                   variant: "destructive"
                 });
-                setLoading(false);
-                return;
+              } else {
+                setError(`Error accessing book file: ${error.message || error}`);
+                toast({
+                  title: "Error",
+                  description: "Failed to access book file.",
+                  variant: "destructive"
+                });
               }
+              setLoading(false);
+              return;
             }
+          } else {
+            // For non-Supabase URLs, use as-is
+            setBookUrl(bookData.url);
           }
-          
-          setBookUrl(bookData.url);
         } else if (bookData.externalUrl) {
           console.log("Using external URL:", bookData.externalUrl);
           setBookUrl(bookData.externalUrl);
@@ -91,6 +125,11 @@ const BookReaderPage: React.FC = () => {
       } catch (err) {
         console.error("Error loading book:", err);
         setError('Failed to load book');
+        toast({
+          title: "Error",
+          description: "Failed to load book data",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }

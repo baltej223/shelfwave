@@ -94,6 +94,22 @@ export const addBook = async (formData: FormData): Promise<Book> => {
     let bookFileUrl = null;
     let coverImageUrl = null;
     
+    // First check if the book_files bucket exists
+    const { data: buckets, error: bucketsError } = await supabase
+      .storage
+      .listBuckets();
+      
+    if (bucketsError) {
+      console.error('Error checking buckets:', bucketsError);
+      throw new Error('Could not access storage buckets');
+    }
+    
+    const bucketExists = buckets.some(bucket => bucket.name === 'book_files');
+    if (!bucketExists) {
+      console.error('The book_files bucket does not exist');
+      throw new Error('Storage bucket "book_files" does not exist');
+    }
+    
     // Upload book file if provided
     if (bookFile && bookFile.size > 0) {
       const fileExt = bookFile.name.split('.').pop();
