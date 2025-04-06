@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Book {
@@ -48,11 +47,36 @@ export const fetchBook = async (id: string): Promise<Book | null> => {
 
   if (!book) return null;
 
+  // For book_file_url, create a signed URL if it exists
+  let bookFileUrl = book.book_file_url;
+  
+  if (bookFileUrl && bookFileUrl.includes('supabase.co/storage/v1/object/public/book_files')) {
+    try {
+      // Extract the path from the public URL
+      const pathParts = bookFileUrl.split('public/book_files/');
+      if (pathParts.length > 1) {
+        const filePath = pathParts[1];
+        // Create a signed URL with 24 hour expiry
+        const { data } = await supabase
+          .storage
+          .from('book_files')
+          .createSignedUrl(filePath, 60 * 60 * 24);
+          
+        if (data && data.signedUrl) {
+          bookFileUrl = data.signedUrl;
+        }
+      }
+    } catch (err) {
+      console.warn("Could not create signed URL for book file:", err);
+      // Keep the original URL if signed URL creation fails
+    }
+  }
+
   return {
     id: book.id,
     name: book.name,
     genre: book.genre,
-    url: book.book_file_url,
+    url: bookFileUrl,
     externalUrl: book.external_url,
     coverImage: book.cover_image_url,
     description: book.description
@@ -94,7 +118,7 @@ export const addBook = async (formData: FormData): Promise<Book> => {
     let bookFileUrl = null;
     let coverImageUrl = null;
     
-    // First check if the book_files bucket exists
+    // Check if the book_files bucket exists before attempting upload
     const { data: buckets, error: bucketsError } = await supabase
       .storage
       .listBuckets();
@@ -124,16 +148,30 @@ export const addBook = async (formData: FormData): Promise<Book> => {
       
       if (fileError) throw fileError;
       
-      // Get the public URL with error handling
+      // Get a signed URL for the file
       try {
-        const { data: { publicUrl } } = supabase.storage
+        const { data } = await supabase.storage
+          .from('book_files')
+          .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 day expiry
+        
+        if (data && data.signedUrl) {
+          bookFileUrl = data.signedUrl;
+        } else {
+          // Fallback to public URL
+          const { data: publicUrlData } = supabase.storage
+            .from('book_files')
+            .getPublicUrl(filePath);
+          
+          bookFileUrl = publicUrlData.publicUrl;
+        }
+      } catch (urlError) {
+        console.error('Error getting signed URL for book file:', urlError);
+        // Fallback to public URL as a last resort
+        const { data: publicUrlData } = supabase.storage
           .from('book_files')
           .getPublicUrl(filePath);
         
-        bookFileUrl = publicUrl;
-      } catch (urlError) {
-        console.error('Error getting public URL for book file:', urlError);
-        // Don't throw, we can still create the book without the file URL
+        bookFileUrl = publicUrlData.publicUrl;
       }
     }
     
@@ -151,17 +189,12 @@ export const addBook = async (formData: FormData): Promise<Book> => {
       
       if (imageError) throw imageError;
       
-      // Get the public URL with error handling
-      try {
-        const { data: { publicUrl } } = supabase.storage
-          .from('book_files')
-          .getPublicUrl(imagePath);
-        
-        coverImageUrl = publicUrl;
-      } catch (urlError) {
-        console.error('Error getting public URL for cover image:', urlError);
-        // Don't throw, we can still create the book without the image URL
-      }
+      // Get the public URL for the image
+      const { data } = supabase.storage
+        .from('book_files')
+        .getPublicUrl(imagePath);
+      
+      coverImageUrl = data.publicUrl;
     }
     
     // Update the book record with the file URLs

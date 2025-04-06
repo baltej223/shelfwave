@@ -52,14 +52,14 @@ const BookReaderPage: React.FC = () => {
                 const filePath = urlParts[1];
                 console.log("Checking if file exists in storage:", filePath);
                 
-                // Get file information from storage to check if it exists
-                const { data, error: storageError } = await supabase
+                // Get a signed URL for the file instead of using the public URL
+                const { data, error: signUrlError } = await supabase
                   .storage
                   .from('book_files')
-                  .getPublicUrl(filePath);
+                  .createSignedUrl(filePath, 60 * 60 * 24); // 24 hour expiry
                 
-                if (storageError) {
-                  console.error("Storage error:", storageError);
+                if (signUrlError) {
+                  console.error("Storage error:", signUrlError);
                   setError('The book file could not be found in storage. The file may have been deleted or the storage bucket may not be properly configured.');
                   toast({
                     title: "Storage Error",
@@ -70,12 +70,12 @@ const BookReaderPage: React.FC = () => {
                   return;
                 }
                 
-                // Use the public URL returned by Supabase
-                if (data && data.publicUrl) {
-                  console.log("Using public URL:", data.publicUrl);
-                  setBookUrl(data.publicUrl);
+                // Use the signed URL
+                if (data && data.signedUrl) {
+                  console.log("Using signed URL:", data.signedUrl);
+                  setBookUrl(data.signedUrl);
                 } else {
-                  setError('Could not generate a public URL for this book file.');
+                  setError('Could not generate a signed URL for this book file.');
                   toast({
                     title: "Error",
                     description: "Unable to access book file.",
